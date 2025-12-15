@@ -473,13 +473,14 @@ async function selectModel(models: ModelInfo[]): Promise<string> {
       const prefix = isSelected ? chalk.green("  ▸ ") : "    "
       const name = isSelected ? chalk.green(m.name) : chalk.white(m.name)
       const size = chalk.gray(` (${m.size})`)
+      const tools = chalk.cyan(" ✓") + chalk.gray(" tools")
       const thinking = m.supportsThinking 
         ? chalk.cyan(" ✓") + chalk.gray(" thinking") 
-        : chalk.gray(" ✗ thinking not supported")
-      return prefix + name + size + thinking
+        : chalk.gray(" ✗") + chalk.gray(" thinking")
+      return prefix + name + size + tools + thinking
     } else {
       // No tool support
-      return chalk.gray(`    ${m.name} (${m.size})`) + chalk.red(" ✗ ineligible model - no tool support")
+      return chalk.gray(`    ${m.name} (${m.size})`) + chalk.red(" ✗") + chalk.gray(" ineligible - no tool support")
     }
   }
   
