@@ -180,21 +180,21 @@ While chatting, use these commands:
   Vault: /path/to/your/vault
 
   Model: qwen2.5:7b-instruct
-  Tools: 8 available
+  Tools: 9 available
 
   > What are the most common topics in my vault?
 
   Thinking...
 
     [Tool] obsidian_list_tags({})
-    [Result] Horizon-1: 36, Data-Ecosystems: 25...
+    [Result] projects: 42, research: 28, meetings: 15...
 
   Assistant:
 
   Based on your vault tags, the most common topics are:
-  1. Horizon-1 (36 notes)
-  2. Data-Ecosystems (25 notes)
-  3. UC-Berkeley (22 notes)
+  1. projects (42 notes)
+  2. research (28 notes)
+  3. meetings (15 notes)
   ...
 
   [Tools: obsidian_list_tags]
@@ -346,8 +346,8 @@ What tags are in my vault?
 *Tools used: obsidian_list_tags*
 
 Based on your vault, the top tags are:
-- Horizon-1: 36 notes
-- Data-Ecosystems: 25 notes
+- projects: 42 notes
+- research: 28 notes
 ...
 ```
 
