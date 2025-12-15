@@ -118,7 +118,7 @@ When answering questions:
 
 const DEFAULT_CONFIG: Config = {
   ollama: {
-    model: "qwen2.5:7b-instruct",
+    model: "llama3.1:8b",
     baseUrl: "http://localhost:11434",
     options: {
       temperature: 0.7,

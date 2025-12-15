@@ -34,11 +34,13 @@ ollama serve     # Start Ollama if not already running
 
 ### 2. Install a Model
 
-Install a 7B+ model with tool-calling support:
+Install a 7B+ model with tool-calling support (see [Choosing a Model](#choosing-a-model) for recommendations):
 
 ```bash
-ollama pull qwen2.5:7b-instruct
-# Or for thinking capability: ollama pull qwen3:8b
+# Examples - choose based on your hardware and needs:
+ollama pull qwen3:8b        # 5GB, thinking + tools
+ollama pull llama3.1:8b     # 4.5GB, reliable tool calling
+ollama pull mistral:7b      # 4GB, fast and capable
 ```
 
 ### 3. Install MCP Obsidian Tools (Required Dependency)
@@ -92,7 +94,7 @@ Edit `config.json` with your actual paths:
 ```json
 {
   "ollama": {
-    "model": "qwen2.5:7b-instruct"
+    "model": "<your-model-name>"
   },
   "mcpServers": {
     "obsidian": {
@@ -106,24 +108,35 @@ Edit `config.json` with your actual paths:
 }
 ```
 
-**Replace the paths above with your actual paths:**
+**Replace the placeholders above:**
+- `<your-model-name>`: The Ollama model you installed (e.g., `qwen3:8b`, `llama3.1:8b`)
+- First arg: Full path to `mcp-obsidian-tools/dist/index.js` (from step 3)
+- Second arg: Full path to your Obsidian vault folder
+
+**Example (macOS):**
 - First arg: Full path to `mcp-obsidian-tools/dist/index.js` (from step 3)
 - Second arg: Full path to your Obsidian vault folder
 
 **Example (macOS):**
 ```json
-"args": [
-  "/Users/john/mcp-obsidian-tools/dist/index.js",
-  "/Users/john/Documents/MyVault"
-]
+{
+  "model": "qwen3:8b",
+  "args": [
+    "/Users/john/mcp-obsidian-tools/dist/index.js",
+    "/Users/john/Documents/MyVault"
+  ]
+}
 ```
 
 **Example (Windows):**
 ```json
-"args": [
-  "C:\\Users\\john\\mcp-obsidian-tools\\dist\\index.js",
-  "C:\\Users\\john\\Documents\\MyVault"
-]
+{
+  "model": "llama3.1:8b",
+  "args": [
+    "C:\\Users\\john\\mcp-obsidian-tools\\dist\\index.js",
+    "C:\\Users\\john\\Documents\\MyVault"
+  ]
+}
 ```
 
 ### 6. Run
@@ -179,7 +192,7 @@ While chatting, use these commands:
   Connecting to vault... ✓
   Vault: /path/to/your/vault
 
-  Model: qwen2.5:7b-instruct
+  Model: <your-model>
   Tools: 9 available
 
   > What are the most common topics in my vault?
@@ -236,7 +249,7 @@ Different tasks require different model capabilities. Match your model to your u
 
 | Task Type | Examples | Minimum Model | Recommended |
 |-----------|----------|---------------|-------------|
-| **Simple queries** | Find files, count notes, list tags | 7B | `qwen2.5:7b-instruct` |
+| **Simple queries** | Find files, count notes, list tags | 7B | Any 7B+ with tools |
 | **Basic search** | Search content, read notes, backlinks | 7B-8B | `qwen3:8b` |
 | **Analysis** | Summarize content, explain notes | 14B+ | `qwen2.5:14b-instruct` |
 | **Deep analysis** | Detailed breakdown, extract insights | 14B-30B | `qwen3:14b`, `qwen3:30b` |
@@ -257,7 +270,7 @@ Look for models with the "tools" tag on [Ollama](https://ollama.com/search?c=too
 Models like `qwen3` and `deepseek-r1` include reasoning/thinking capabilities that improve multi-step analysis.
 
 **Instruction Tuning**  
-Prefer `-instruct` variants over base models. Example: `qwen2.5:7b-instruct` over `qwen2.5:7b`.
+Prefer `-instruct` variants over base models. Example: `llama3.1:8b-instruct` over `llama3.1:8b`.
 
 **Context Length**  
 Larger context (8K-128K) helps when reading multiple notes. Critical for analyzing folders with many files.
@@ -269,7 +282,7 @@ Q4_K_M or Q5 balances size and quality. Avoid Q2/Q3 for complex tasks.
 
 | Model | Size | RAM | Best For | Notes |
 |-------|------|-----|----------|-------|
-| `qwen2.5:7b-instruct` | 4.5GB | 8GB | Simple queries | Fast, reliable tool selection |
+| `llama3.1:8b` | 4.5GB | 8GB | Simple queries | Meta's reliable workhorse |
 | `qwen3:8b` | 5GB | 8GB | Basic analysis | Thinking + tools |
 | `llama3.1:8b` | 4.5GB | 8GB | Simple queries | Meta's workhorse |
 | `mistral-nemo:12b` | 7GB | 12GB | Medium tasks | 128k context |
@@ -284,7 +297,7 @@ Q4_K_M or Q5 balances size and quality. Avoid Q2/Q3 for complex tasks.
 
 ```bash
 # Install any 7B+ model from the table above
-ollama pull qwen2.5:7b-instruct
+ollama pull <model-name>
 ```
 
 ## Configuration
@@ -294,7 +307,7 @@ Full `config.json` options:
 ```json
 {
   "ollama": {
-    "model": "qwen2.5:7b-instruct",
+    "model": "<your-model>",
     "baseUrl": "http://localhost:11434",
     "options": {
       "temperature": 0.7,
@@ -332,7 +345,7 @@ Output format:
 # Vault Agent Chat Export
 
 **Date**: 12/14/2024 10:30:00 AM
-**Model**: qwen2.5:7b-instruct
+**Model**: qwen3:8b
 **Turns**: 5
 
 ---
@@ -418,7 +431,7 @@ ollama serve
 ### "Model not available"
 
 ```bash
-ollama pull qwen2.5:7b-instruct
+ollama pull <your-model>  # e.g., qwen3:8b, llama3.1:8b
 ```
 
 ### "No tools available"

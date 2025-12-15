@@ -221,7 +221,7 @@ export function filterThinkingBlocks(content: string): string {
 // Baseline: 7B+ parameters with tool-calling support for reliable vault queries
 export const MODEL_RECOMMENDATIONS = [
   {
-    name: "qwen2.5:7b-instruct",
+    name: "llama3.1:8b",
     size: "~4.5GB",
     ram: "8GB",
     toolCalling: "Excellent",
