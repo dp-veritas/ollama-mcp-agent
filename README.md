@@ -22,39 +22,72 @@ Private local AI for querying your Obsidian vault using Ollama and MCP. **100% o
 
 ### 1. Prerequisites
 
-```bash
-# Node.js 18+
-node --version
+Ensure you have the following installed:
 
-# Ollama running locally
-ollama serve
+```bash
+# Node.js 18+ required
+node --version   # Should show v18.x.x or higher
+
+# Ollama must be installed and running
+ollama serve     # Start Ollama if not already running
 ```
 
 ### 2. Install a Model
 
+Install a 7B+ model with tool-calling support:
+
 ```bash
-# Example: install a 7B+ model with tool support
 ollama pull qwen2.5:7b-instruct
-# Or: ollama pull qwen3:8b
+# Or for thinking capability: ollama pull qwen3:8b
 ```
 
-### 3. Install Vault Agent
+### 3. Install MCP Obsidian Tools (Required Dependency)
+
+This agent requires [mcp-obsidian-tools](https://github.com/dp-veritas/mcp-obsidian-tools) - the MCP server that provides the 9 vault tools.
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/vault-agent.git
-cd vault-agent
+# Clone the MCP tools repository
+git clone https://github.com/dp-veritas/mcp-obsidian-tools.git
+cd mcp-obsidian-tools
+
+# Install dependencies and build
 npm install
 npm run build
-npm install -g .   # Install globally - enables 'vault' command from anywhere
+
+# Note the full path to the built file - you'll need this for config
+# Example: /Users/yourname/mcp-obsidian-tools/dist/index.js
+pwd  # Shows your current directory
 ```
 
-### 4. Configure
+**Important**: Remember the full path to `dist/index.js` - you'll need it in step 5.
+
+### 4. Install Vault Agent
+
+```bash
+# Navigate back to where you want to install the agent
+cd ..
+
+# Clone the vault agent repository
+git clone https://github.com/dp-veritas/ollama-obsidian-agent.git
+cd ollama-obsidian-agent
+
+# Install dependencies and build
+npm install
+npm run build
+
+# Optional: Install globally to use 'vault' command from anywhere
+npm install -g .
+```
+
+### 5. Configure
+
+Create your config file:
 
 ```bash
 cp example-config.json config.json
 ```
 
-Edit `config.json` with your paths:
+Edit `config.json` with your actual paths:
 
 ```json
 {
@@ -65,25 +98,45 @@ Edit `config.json` with your paths:
     "obsidian": {
       "command": "node",
       "args": [
-        "/path/to/mcp-obsidian-tools/dist/index.js",
-        "/path/to/your/obsidian/vault"
+        "/full/path/to/mcp-obsidian-tools/dist/index.js",
+        "/full/path/to/your/obsidian/vault"
       ]
     }
   }
 }
 ```
 
-### 5. Run
+**Replace the paths above with your actual paths:**
+- First arg: Full path to `mcp-obsidian-tools/dist/index.js` (from step 3)
+- Second arg: Full path to your Obsidian vault folder
+
+**Example (macOS):**
+```json
+"args": [
+  "/Users/john/mcp-obsidian-tools/dist/index.js",
+  "/Users/john/Documents/MyVault"
+]
+```
+
+**Example (Windows):**
+```json
+"args": [
+  "C:\\Users\\john\\mcp-obsidian-tools\\dist\\index.js",
+  "C:\\Users\\john\\Documents\\MyVault"
+]
+```
+
+### 6. Run
 
 ```bash
-# After global install, just run:
+# If installed globally (step 4):
 vault
+
+# Or run directly:
+npm run local-agent
 
 # Or with explicit command:
 vault local
-
-# For development (without global install):
-npm run local-agent
 ```
 
 ## Usage
