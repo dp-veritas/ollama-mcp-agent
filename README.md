@@ -14,7 +14,7 @@ Private local AI for querying your Obsidian vault using Ollama and MCP. **100% o
 
 - **Private**: Your data never leaves your machine - 100% local inference
 - **Sovereign**: No API keys, no cloud, no data collection
-- **Powerful**: 8 specialized tools for searching, reading, and exploring your vault
+- **Powerful**: 9 specialized tools for searching, reading, and exploring your vault
 - **Flexible**: Switch vaults on the fly without leaving the CLI
 - **Export**: Save chat sessions as markdown files
 
@@ -173,6 +173,7 @@ The agent connects to [mcp-obsidian-tools](https://github.com/dp-veritas/mcp-obs
 | `obsidian_query` | Natural language search with date filtering |
 | `obsidian_backlinks` | Find notes linking to a target |
 | `obsidian_get_frontmatter` | Get note metadata |
+| `obsidian_count_files` | Count files in a folder (with optional file listing) |
 
 ## Choosing a Model
 
