@@ -590,7 +590,7 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
   // Banner
   console.log("")
   console.log(chalk.cyan.bold("  ╭────────────────────────────────────────────────────────╮"))
-  console.log(chalk.cyan.bold("  │") + chalk.white.bold("            Ollama Vault Agent v1.2.0                   ") + chalk.cyan.bold("│"))
+  console.log(chalk.cyan.bold("  │") + chalk.white.bold("            Ollama Vault Agent v1.3.0                   ") + chalk.cyan.bold("│"))
   console.log(chalk.cyan.bold("  │") + chalk.gray(" Private intelligence for Obsidian - query locally,     ") + chalk.cyan.bold("│"))
   console.log(chalk.cyan.bold("  │") + chalk.gray(" keep control. Built on MCP for secure, sovereign AI.   ") + chalk.cyan.bold("│"))
   console.log(chalk.cyan.bold("  ╰────────────────────────────────────────────────────────╯"))

@@ -4,7 +4,7 @@ Private local AI for querying your Obsidian vault using Ollama and MCP. **100% o
 
 ```
   ╭────────────────────────────────────────────────────────╮
-  │            Ollama Vault Agent v1.2.0                   │
+  │            Ollama Vault Agent v1.3.0                   │
   │ Private intelligence for Obsidian - query locally,     │
   │ keep control. Built on MCP for secure, sovereign AI.   │
   ╰────────────────────────────────────────────────────────╯
@@ -183,7 +183,7 @@ While chatting, use these commands:
 
 ```
   ╭────────────────────────────────────────────────────────╮
-  │            Ollama Vault Agent v1.2.0                   │
+  │            Ollama Vault Agent v1.3.0                   │
   │ Private intelligence for Obsidian - query locally,     │
   │ keep control. Built on MCP for secure, sovereign AI.   │
   ╰────────────────────────────────────────────────────────╯

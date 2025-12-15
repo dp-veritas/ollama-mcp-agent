@@ -8,7 +8,7 @@ const program = new Command()
 program
   .name("vault-agent")
   .description("Private local AI agent for Obsidian vault queries using Ollama + MCP")
-  .version("1.2.0")
+  .version("1.3.0")
 
 // Default command - start interactive vault chat
 program
