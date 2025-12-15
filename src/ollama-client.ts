@@ -87,19 +87,38 @@ export class OllamaClient {
   async chat(
     messages: Message[],
     tools?: Tool[],
-    onStream?: StreamCallback
+    onStream?: StreamCallback,
+    signal?: AbortSignal
   ): Promise<{ message: Message; toolCalls?: ToolCall[] }> {
     // Use streaming if callback provided and no tools (tool calls don't stream well)
     if (onStream && !tools) {
-      return this.chatStreaming(messages, onStream)
+      return this.chatStreaming(messages, onStream, signal)
     }
 
-    const response: ChatResponse = await this.client.chat({
+    // Check if already aborted
+    if (signal?.aborted) {
+      throw new DOMException("Request aborted", "AbortError")
+    }
+
+    // Create abort promise
+    const abortPromise = signal
+      ? new Promise<never>((_, reject) => {
+          signal.addEventListener("abort", () => {
+            reject(new DOMException("Request aborted", "AbortError"))
+          })
+        })
+      : null
+
+    const chatPromise = this.client.chat({
       model: this._model,
       messages,
       tools,
       options: this.options,
     })
+
+    const response: ChatResponse = abortPromise
+      ? await Promise.race([chatPromise, abortPromise])
+      : await chatPromise
 
     const toolCalls = response.message.tool_calls?.map((tc) => ({
       name: tc.function.name,
@@ -114,8 +133,14 @@ export class OllamaClient {
 
   private async chatStreaming(
     messages: Message[],
-    onStream: StreamCallback
+    onStream: StreamCallback,
+    signal?: AbortSignal
   ): Promise<{ message: Message; toolCalls?: ToolCall[] }> {
+    // Check if already aborted
+    if (signal?.aborted) {
+      throw new DOMException("Request aborted", "AbortError")
+    }
+
     const response = await this.client.chat({
       model: this._model,
       messages,
@@ -125,6 +150,10 @@ export class OllamaClient {
 
     let fullContent = ""
     for await (const chunk of response) {
+      // Check for abort during streaming
+      if (signal?.aborted) {
+        throw new DOMException("Request aborted", "AbortError")
+      }
       if (chunk.message?.content) {
         fullContent += chunk.message.content
         onStream(chunk.message.content)

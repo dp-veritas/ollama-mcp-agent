@@ -43,7 +43,7 @@ export class Agent {
     ]
   }
 
-  async chat(userMessage: string): Promise<AgentResponse> {
+  async chat(userMessage: string, signal?: AbortSignal): Promise<AgentResponse> {
     const toolsUsed: string[] = []
 
     // Track user message for export
@@ -63,10 +63,17 @@ export class Agent {
     let toolCallCount = 0
 
     while (toolCallCount < this.config.maxToolCalls) {
+      // Check for abort
+      if (signal?.aborted) {
+        throw new DOMException("Request aborted", "AbortError")
+      }
+
       // Get response from Ollama
       const response = await this.ollamaClient.chat(
         this.conversationHistory,
-        tools.length > 0 ? tools : undefined
+        tools.length > 0 ? tools : undefined,
+        undefined, // onStream
+        signal
       )
 
       // Add assistant response to history
@@ -120,7 +127,12 @@ export class Agent {
     }
 
     // If we hit max tool calls, get final response without tools
-    const finalResponse = await this.ollamaClient.chat(this.conversationHistory)
+    const finalResponse = await this.ollamaClient.chat(
+      this.conversationHistory,
+      undefined, // tools
+      undefined, // onStream
+      signal
+    )
     this.conversationHistory.push(finalResponse.message)
 
     const content = finalResponse.message.content || "(No response)"

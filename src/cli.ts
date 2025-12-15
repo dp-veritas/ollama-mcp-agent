@@ -21,6 +21,7 @@ interface InputState {
   thinkingEnabled: boolean
   modelSupportsThinking: boolean
   panelVisible: "shortcuts" | "commands" | null
+  waiting: boolean
 }
 
 // Clear current line and move cursor to start
@@ -194,6 +195,7 @@ class RawInputHandler {
       thinkingEnabled: true, // Default on for thinking models
       modelSupportsThinking,
       panelVisible: null,
+      waiting: false,
     }
     this.onSubmit = onSubmit
     this.onExit = onExit
@@ -201,6 +203,10 @@ class RawInputHandler {
   
   get thinkingEnabled(): boolean {
     return this.state.thinkingEnabled
+  }
+  
+  setWaiting(waiting: boolean): void {
+    this.state.waiting = waiting
   }
   
   updateModel(modelName: string): void {
@@ -225,9 +231,14 @@ class RawInputHandler {
   private async handleKey(key: string): Promise<void> {
     const code = key.charCodeAt(0)
     
-    // Ctrl+C - exit
+    // Ctrl+C - exit (always works)
     if (code === 3) {
       this.onExit()
+      return
+    }
+    
+    // When waiting for response, ignore all input (escape is handled separately)
+    if (this.state.waiting) {
       return
     }
     
@@ -709,47 +720,65 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
 
       // Chat with agent
       try {
-        // Start thinking timer with cancel support
-        // Escape works immediately, but hint only shows after 60s
+        // Mark as waiting to disable input handler
+        session.inputHandler.setWaiting(true)
+        
+        // Start progress indicator with cancel support
         const startTime = Date.now()
         let elapsed = 0
         let cancelled = false
         let cancelHintShown = false
+        const showThinkingTimer = session.inputHandler.thinkingEnabled
         
-        process.stdout.write(chalk.gray("\n  Thinking... "))
-        process.stdout.write(chalk.gray("0s"))
-        
-        // Set up escape key listener for cancellation (works from start)
-        if (process.stdin.isTTY) {
-          process.stdin.setRawMode(true)
+        // Show different progress based on thinking mode
+        if (showThinkingTimer) {
+          process.stdout.write(chalk.gray("\n  Thinking... 0s"))
+        } else {
+          process.stdout.write(chalk.gray("\n  Processing..."))
         }
-        process.stdin.resume()
         
-        const escapeHandler = (key: Buffer) => {
-          if (key[0] === 27) { // Escape key - always cancels
+        // Set up escape key listener for cancellation
+        const abortController = new AbortController()
+        let timer: NodeJS.Timeout  // Declare before handler so it can be cleared on escape
+        
+        // Escape handler - stdin is in UTF-8 mode so we get strings
+        // Pure escape is "\x1b" (single char), arrow keys are "\x1b[A" etc
+        const escapeHandler = (key: string) => {
+          if (key === "\x1b") { // Pure escape key (not an escape sequence)
             cancelled = true
+            abortController.abort()
+            clearInterval(timer)  // Stop timer immediately to prevent display glitches
           }
         }
         process.stdin.on("data", escapeHandler)
         
-        const timer = setInterval(() => {
+        // Timer only updates display when thinking is enabled
+        timer = setInterval(() => {
           elapsed = Math.floor((Date.now() - startTime) / 1000)
           const timeStr = elapsed >= 60 
             ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
             : `${elapsed}s`
           
-          if (elapsed >= 60 && !cancelHintShown) {
-            cancelHintShown = true
-            process.stdout.write("\r" + chalk.gray(`  Thinking... ${timeStr}`) + chalk.yellow("  (press Esc to cancel)"))
-          } else if (cancelHintShown) {
-            process.stdout.write("\r" + chalk.gray(`  Thinking... ${timeStr}`) + chalk.yellow("  (press Esc to cancel)"))
+          if (showThinkingTimer) {
+            if (elapsed >= 60 && !cancelHintShown) {
+              cancelHintShown = true
+              process.stdout.write("\r" + chalk.gray(`  Thinking... ${timeStr}`) + chalk.yellow("  (press Esc to cancel)"))
+            } else if (cancelHintShown) {
+              process.stdout.write("\r" + chalk.gray(`  Thinking... ${timeStr}`) + chalk.yellow("  (press Esc to cancel)"))
+            } else {
+              process.stdout.write("\r" + chalk.gray(`  Thinking... ${timeStr}`))
+            }
           } else {
-            process.stdout.write("\r" + chalk.gray(`  Thinking... ${timeStr}`))
+            // When thinking hidden, show cancel hint after 60s but no timer
+            if (elapsed >= 60 && !cancelHintShown) {
+              cancelHintShown = true
+              process.stdout.write("\r" + chalk.gray("  Processing...") + chalk.yellow("  (press Esc to cancel)"))
+            }
           }
         }, 1000)
         
         // Race between chat completion and cancellation
-        const chatPromise = session.agent.chat(input)
+        const chatPromise = session.agent.chat(input, abortController.signal)
         
         // Poll for cancellation
         const checkCancelled = async (): Promise<null> => {
@@ -767,13 +796,15 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
         // Cleanup
         clearInterval(timer)
         process.stdin.removeListener("data", escapeHandler)
+        session.inputHandler.setWaiting(false)
         
         if (result.type === "cancelled") {
           elapsed = Math.floor((Date.now() - startTime) / 1000)
           const timeStr = elapsed >= 60 
             ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
             : `${elapsed}s`
-          console.log("\r" + chalk.yellow(`  Thinking... cancelled after ${timeStr}`) + "                    ")
+          const label = showThinkingTimer ? "Thinking" : "Request"
+          console.log("\r" + chalk.yellow(`  ${label}... cancelled after ${timeStr}`) + "                    ")
           console.log("")
           return // Return to prompt without processing response
         }
@@ -785,7 +816,8 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
         const timeStr = elapsed >= 60 
           ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
           : `${elapsed}s`
-        console.log("\r" + chalk.gray(`  Thinking... completed in ${timeStr}`) + "                    ")
+        const completedLabel = showThinkingTimer ? "Thinking" : "Completed"
+        console.log("\r" + chalk.gray(`  ${completedLabel}... completed in ${timeStr}`) + "                    ")
         console.log("")
         
         // Filter thinking blocks if thinking display is off
@@ -806,6 +838,15 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
         }
         console.log("")
       } catch (error) {
+        // Always restore waiting state
+        session.inputHandler.setWaiting(false)
+        
+        // Handle abort errors gracefully
+        if (error instanceof DOMException && error.name === "AbortError") {
+          console.log("\r" + chalk.yellow("  Request cancelled") + "                    ")
+          console.log("")
+          return
+        }
         const msg = error instanceof Error ? error.message : String(error)
         console.error(chalk.red(`\n  Error: ${msg}\n`))
       }
