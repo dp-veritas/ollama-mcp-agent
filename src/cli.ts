@@ -57,8 +57,8 @@ function renderPrompt(state: InputState): void {
   hints.push(chalk.gray("/ commands"))
   if (state.modelSupportsThinking) {
     const thinkingStatus = state.thinkingEnabled 
-      ? chalk.green("Thinking visible") 
-      : chalk.gray("Thinking hidden")
+      ? chalk.cyan("✓") + chalk.green(" Thinking visible") 
+      : chalk.gray("✗ Thinking hidden")
     hints.push(thinkingStatus + chalk.gray(" (tab)"))
   }
   console.log("  " + hints.join("    "))
@@ -89,8 +89,8 @@ function renderPromptInitial(state: InputState): void {
   hints.push(chalk.gray("/ commands"))
   if (state.modelSupportsThinking) {
     const thinkingStatus = state.thinkingEnabled 
-      ? chalk.green("Thinking visible") 
-      : chalk.gray("Thinking hidden")
+      ? chalk.cyan("✓") + chalk.green(" Thinking visible") 
+      : chalk.gray("✗ Thinking hidden")
     hints.push(thinkingStatus + chalk.gray(" (tab)"))
   }
   console.log("  " + hints.join("    "))
@@ -165,8 +165,8 @@ function clearPanelAndRestorePrompt(state: InputState, panelLines: number): void
   hints.push(chalk.gray("/ commands"))
   if (state.modelSupportsThinking) {
     const thinkingStatus = state.thinkingEnabled 
-      ? chalk.green("Thinking visible") 
-      : chalk.gray("Thinking hidden")
+      ? chalk.cyan("✓") + chalk.green(" Thinking visible") 
+      : chalk.gray("✗ Thinking hidden")
     hints.push(thinkingStatus + chalk.gray(" (tab)"))
   }
   process.stdout.write("  " + hints.join("    "))
