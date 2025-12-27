@@ -6,9 +6,9 @@ import { runCLI, listModels, exportChat } from "./cli.js"
 const program = new Command()
 
 program
-  .name("vault-agent")
-  .description("Private local AI agent for Obsidian vault queries using Ollama + MCP")
-  .version("1.3.0")
+  .name("ollama-mcp-agent")
+  .description("Universal local AI agent for querying any MCP-enabled data source using Ollama")
+  .version("2.0.0")
 
 // Default command - start interactive vault chat
 program

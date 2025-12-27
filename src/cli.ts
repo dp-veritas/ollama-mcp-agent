@@ -128,8 +128,9 @@ function renderCommandsPanel(state: InputState): void {
   const line = "─".repeat(LINE_WIDTH)
   console.log(chalk.gray(`  ${line}`))
   console.log(chalk.cyan("  Commands:"))
-  console.log(chalk.gray("    /vault <path>  ") + "Switch to different vault")
+  console.log(chalk.gray("    /servers       ") + "List connected MCP servers")
   console.log(chalk.gray("    /tools         ") + "List available tools")
+  console.log(chalk.gray("    /vault <path>  ") + "Switch to different vault")
   console.log(chalk.gray("    /models        ") + "List models")
   console.log(chalk.gray("    /model <name>  ") + "Switch model")
   console.log(chalk.gray("    /export [file] ") + "Export chat to markdown")
@@ -447,7 +448,7 @@ async function selectModel(models: ModelInfo[]): Promise<string> {
     console.log(chalk.gray("  Browse models at: ") + chalk.cyan("https://ollama.com/search?c=tools"))
     console.log("")
     console.log(chalk.gray("  Quick start:"))
-    console.log(chalk.white("    ollama pull <model>") + chalk.gray("  (e.g., qwen3:8b, llama3.1:8b)"))
+    console.log(chalk.white("    ollama pull qwen2.5:7b-instruct") + chalk.gray("  (4.5GB, recommended)"))
     console.log(chalk.white("    ollama pull qwen3:8b") + chalk.gray("             (5GB, thinking + tools)"))
     console.log("")
     process.exit(1)
@@ -601,9 +602,9 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
   // Banner
   console.log("")
   console.log(chalk.cyan.bold("  ╭────────────────────────────────────────────────────────╮"))
-  console.log(chalk.cyan.bold("  │") + chalk.white.bold("            Ollama Vault Agent v1.3.0                   ") + chalk.cyan.bold("│"))
-  console.log(chalk.cyan.bold("  │") + chalk.gray(" Private intelligence for Obsidian - query locally,     ") + chalk.cyan.bold("│"))
-  console.log(chalk.cyan.bold("  │") + chalk.gray(" keep control. Built on MCP for secure, sovereign AI.   ") + chalk.cyan.bold("│"))
+  console.log(chalk.cyan.bold("  │") + chalk.white.bold("          Ollama MCP Agent v2.0.0                       ") + chalk.cyan.bold("│"))
+  console.log(chalk.cyan.bold("  │") + chalk.gray(" Universal local AI - connect any MCP tool.             ") + chalk.cyan.bold("│"))
+  console.log(chalk.cyan.bold("  │") + chalk.gray(" 100% offline, 100% sovereign.                          ") + chalk.cyan.bold("│"))
   console.log(chalk.cyan.bold("  ╰────────────────────────────────────────────────────────╯"))
   console.log("")
 
@@ -646,7 +647,7 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
         console.log(chalk.gray("  Browse models at: ") + chalk.cyan("https://ollama.com/search?c=tools"))
         console.log("")
         console.log(chalk.gray("  Quick start:"))
-        console.log(chalk.white("    ollama pull <model>") + chalk.gray("  (e.g., qwen3:8b, llama3.1:8b)"))
+        console.log(chalk.white("    ollama pull qwen2.5:7b-instruct") + chalk.gray("  (4.5GB, recommended)"))
         console.log(chalk.white("    ollama pull qwen3:8b") + chalk.gray("             (5GB, thinking + tools)"))
         console.log("")
         process.exit(1)
@@ -673,9 +674,24 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
     // Note: The MCP server may output startup messages to stderr
     // We print our status after connection completes
     await mcpClient.connect()
-    console.log(chalk.gray("  Connecting to vault... ") + chalk.green("✓"))
-    if (currentVaultPath) {
-      console.log(chalk.gray("  Vault: ") + chalk.white(currentVaultPath))
+    console.log(chalk.gray("  Connecting to MCP servers... ") + chalk.green("✓"))
+    console.log("")
+    
+    // Show connected MCP servers with tool counts
+    console.log(chalk.cyan("  Connected MCP Servers:"))
+    const serverNames = Object.keys(config.mcpServers)
+    for (const serverName of serverNames) {
+      const serverTools = mcpClient.getTools().filter(t => t.name.startsWith(`${serverName}_`))
+      const toolCount = serverTools.length
+      
+      // Special display for obsidian (show vault path)
+      if (serverName === "obsidian" && currentVaultPath) {
+        console.log(chalk.gray("    • ") + chalk.white(serverName) + chalk.gray(` (${toolCount} tools) - ${currentVaultPath}`))
+      } else if (serverName === "nzdpu") {
+        console.log(chalk.gray("    • ") + chalk.white(serverName) + chalk.gray(` (${toolCount} tools) - 12,497 companies`))
+      } else {
+        console.log(chalk.gray("    • ") + chalk.white(serverName) + chalk.gray(` (${toolCount} tools)`))
+      }
     }
   }
 
@@ -684,7 +700,7 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
   // Status line
   console.log("")
   console.log(chalk.gray("  Model: ") + chalk.white(config.ollama.model))
-  console.log(chalk.gray("  Tools: ") + chalk.white(tools.length + " available"))
+  console.log(chalk.gray("  Total Tools: ") + chalk.white(tools.length + " available"))
   
   // Show thinking capability status
   const modelSupportsThinking = isThinkingCapable(config.ollama.model)
@@ -938,29 +954,57 @@ async function handleCommand(input: string, session: Session): Promise<void> {
       console.log("")
       break
 
+    case "servers":
+      const serverNames = Object.keys(session.config.mcpServers)
+      if (serverNames.length === 0) {
+        console.log(chalk.yellow("\n  No MCP servers configured.\n"))
+      } else {
+        console.log(chalk.cyan("\n  Connected MCP Servers:\n"))
+        let serverIndex = 1
+        for (const serverName of serverNames) {
+          const serverTools = session.mcpClient.getTools().filter(t => t.name.startsWith(`${serverName}_`))
+          console.log(chalk.white(`  ${serverIndex}. ${serverName}`))
+          
+          // Show server-specific info
+          if (serverName === "obsidian" && session.currentVaultPath) {
+            console.log(chalk.gray(`     Path: ${session.currentVaultPath}`))
+          } else if (serverName === "nzdpu") {
+            console.log(chalk.gray(`     Dataset: 12,497 companies`))
+          }
+          
+          console.log(chalk.gray(`     Tools: ${serverTools.length}`))
+          console.log(chalk.gray(`     Status: `) + chalk.green("Connected ✓"))
+          console.log("")
+          serverIndex++
+        }
+      }
+      break
+
     case "tools":
       const tools = session.mcpClient.getTools()
       if (tools.length === 0) {
         console.log(chalk.yellow("\n  No tools available.\n"))
       } else {
-        console.log(chalk.cyan("\n  Available Tools:\n"))
-        for (const tool of tools) {
-          console.log(`    ${chalk.green(tool.name)}`)
-          // Word-wrap description at ~70 chars with indent
-          const words = tool.description.split(" ")
-          let line = "      "
-          for (const word of words) {
-            if (line.length + word.length > 76) {
-              console.log(chalk.gray(line))
-              line = "      " + word + " "
-            } else {
-              line += word + " "
+        console.log(chalk.cyan(`\n  Available Tools (${tools.length} total):\n`))
+        
+        // Group tools by MCP server (based on prefix)
+        const toolsByServer: Record<string, typeof tools> = {}
+        const serverNames2 = Object.keys(session.config.mcpServers)
+        
+        for (const serverName of serverNames2) {
+          toolsByServer[serverName] = tools.filter(t => t.name.startsWith(`${serverName}_`))
+        }
+        
+        // Display tools grouped by server
+        for (const serverName of serverNames2) {
+          const serverTools = toolsByServer[serverName]
+          if (serverTools.length > 0) {
+            console.log(chalk.white(`  ${serverName.toUpperCase()} (${serverTools.length} tools):`))
+            for (const tool of serverTools) {
+              console.log(`    ${chalk.green("• " + tool.name)}`)
             }
+            console.log("") // Empty line between servers
           }
-          if (line.trim()) {
-            console.log(chalk.gray(line))
-          }
-          console.log("") // Empty line between tools
         }
       }
       break
@@ -973,10 +1017,11 @@ async function handleCommand(input: string, session: Session): Promise<void> {
     case "help":
     case "?":
       console.log(chalk.cyan("\n  Commands:\n"))
+      console.log("    /servers         List connected MCP servers")
+      console.log("    /tools           List available MCP tools")
       console.log("    /vault <path>    Switch to a different vault directory")
       console.log("    /model <name>    Switch to a different Ollama model")
       console.log("    /models          List available and recommended models")
-      console.log("    /tools           List available MCP tools")
       console.log("    /export [file]   Export chat history to markdown")
       console.log("    /clear           Clear conversation history")
       console.log("    /help            Show this help")
