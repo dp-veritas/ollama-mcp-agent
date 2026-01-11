@@ -20,9 +20,47 @@ A CLI agent that connects Ollama (local LLMs) to any MCP (Model Context Protocol
 - **Multi-Domain**: Query vaults, databases, emissions data in one session
 - **Private**: Your data never leaves your machine - 100% local inference
 - **Sovereign**: No API keys, no cloud, no data collection
+- **Cloud Models**: Access to 120B-671B parameter models through Ollama Cloud
 - **Extensible**: Add new MCP servers to your config anytime
 - **Flexible**: Switch between data sources without leaving the CLI
 - **Export**: Save chat sessions as markdown files
+
+## Ollama Cloud Support
+
+Access much larger models (up to 671B parameters) without needing powerful local hardware. **Zero manual steps required** - Ollama handles authentication automatically!
+
+### Available Cloud Models
+
+Models ending in `-cloud` or `:cloud` use Ollama Cloud:
+- `gpt-oss:120b-cloud` (120B parameters, excellent reasoning)
+- `gpt-oss:20b-cloud` (20B parameters, fast & capable)
+- `qwen3-coder:480b-cloud` (480B parameters, code specialist)
+- `deepseek-v3.1:671b-cloud` (671B parameters, advanced reasoning)
+- `kimi-k2:1t-cloud` (1 trillion parameters!)
+- And more at [ollama.com/library](https://ollama.com/library)
+
+### How to Use Cloud Models
+
+Just switch to a cloud model and start chatting:
+
+```bash
+vault local
+# Switch to cloud model: /model gpt-oss:120b-cloud
+# Ollama automatically:
+#   - Authenticates (may open browser if needed)
+#   - Pulls the model (if not cached)
+#   - Makes it ready to use
+# Start chatting immediately!
+```
+
+**Features:**
+- ✅ Tool calling support on cloud models
+- ✅ Thinking/reasoning traces
+- ✅ Streaming responses
+- ✅ Switch between local and cloud with `/model` command
+- ✅ Same MCP integration as local models
+
+**Note:** Ollama Cloud models have usage costs. Check [ollama.com/pricing](https://ollama.com/pricing) for current rates.
 
 ## Supported MCP Servers
 

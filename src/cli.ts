@@ -8,6 +8,16 @@ import { MCPClientManager } from "./mcp-client.js"
 import { loadConfig, type Config, type MCPServerConfig } from "./config.js"
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Helper to detect cloud models (supports both -cloud and :cloud formats)
+function isCloudModel(modelName: string): boolean {
+  const lowerName = modelName.toLowerCase()
+  return lowerName.endsWith('-cloud') || lowerName.endsWith(':cloud')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Advanced Input Handler with Raw Mode
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -663,6 +673,11 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
     console.log(chalk.yellow(`\n  ⚠ ${sizeCheck.warning}`))
   }
 
+  // Show helpful hint for cloud models
+  if (isCloudModel(config.ollama.model)) {
+    console.log(chalk.gray("\n  💡 Using cloud model - Ollama handles authentication automatically"))
+  }
+
   // Initialize MCP client (quiet mode to suppress connection logs)
   let mcpClient = new MCPClientManager(config.mcpServers, true)
   let currentVaultPath = extractVaultPath(config.mcpServers)
@@ -856,15 +871,23 @@ export async function runCLI(configPath?: string, modelOverride?: string): Promi
       } catch (error) {
         // Always restore waiting state
         session.inputHandler.setWaiting(false)
-        
+
         // Handle abort errors gracefully
         if (error instanceof DOMException && error.name === "AbortError") {
           console.log("\r" + chalk.yellow("  Request cancelled") + "                    ")
           console.log("")
           return
         }
+
         const msg = error instanceof Error ? error.message : String(error)
-        console.error(chalk.red(`\n  Error: ${msg}\n`))
+        console.error(chalk.red(`\n  ✗ ${msg}\n`))
+
+        // Additional guidance for cloud models
+        if (isCloudModel(session.agent.getModel())) {
+          console.log(chalk.gray("  💡 Cloud models are handled automatically by Ollama."))
+          console.log(chalk.gray("     If issues persist, try: ") + chalk.cyan(`ollama run ${session.agent.getModel()}`))
+          console.log("")
+        }
       }
     },
     async () => {
@@ -934,19 +957,44 @@ async function handleCommand(input: string, session: Session): Promise<void> {
       break
 
     case "models":
-      console.log(chalk.cyan("\n  Installed Models:\n"))
       try {
         const models = await session.ollamaClient.listModelsSorted()
-        for (const m of models) {
-          const current = m.name === session.agent.getModel() ? chalk.green(" (current)") : ""
-          console.log(`    ${m.name}${current}`)
-          console.log(chalk.gray(`      ${m.size}, ${m.parameterSize}`))
+
+        // Separate local and cloud models
+        const localModels = models.filter(m => !isCloudModel(m.name))
+        const cloudModels = models.filter(m => isCloudModel(m.name))
+
+        // Display local models
+        console.log(chalk.cyan("\n  Local Models:\n"))
+        if (localModels.length > 0) {
+          for (const m of localModels) {
+            const current = m.name === session.agent.getModel() ? chalk.green(" (current)") : ""
+            console.log(`    ${m.name}${current}`)
+            console.log(chalk.gray(`      ${m.size}, ${m.parameterSize}`))
+          }
+        } else {
+          console.log(chalk.gray("    No local models installed"))
+        }
+
+        // Display cloud models
+        if (cloudModels.length > 0) {
+          console.log(chalk.cyan("\n  Cloud Models (Ollama Cloud):\n"))
+          for (const m of cloudModels) {
+            const current = m.name === session.agent.getModel() ? chalk.green(" (current)") : ""
+            console.log(`    ${m.name}${current} ${chalk.gray('(cloud)')}`)
+            console.log(chalk.gray(`      ${m.parameterSize} parameters`))
+          }
+          console.log(chalk.gray("\n  💡 Cloud models auto-authenticate through Ollama"))
+        } else {
+          console.log(chalk.cyan("\n  Cloud Models:\n"))
+          console.log(chalk.gray("    No cloud models available. To add cloud models:"))
+          console.log(chalk.gray("    ollama pull gpt-oss:120b-cloud"))
         }
       } catch (error) {
         console.error(chalk.red("  Failed to list models"))
       }
-      
-      console.log(chalk.cyan("\n  Models for Tool Calling (7B+ baseline):\n"))
+
+      console.log(chalk.cyan("\n  Recommended for Tool Calling (7B+ baseline):\n"))
       for (const rec of MODEL_RECOMMENDATIONS.slice(0, 4)) {
         console.log(`    ${rec.name}`)
         console.log(chalk.gray(`      ${rec.size} | RAM: ${rec.ram} | ${rec.notes}`))
@@ -1109,19 +1157,42 @@ export async function listModels(configPath?: string): Promise<void> {
 
   try {
     const models = await ollamaClient.listModels()
-    
-    console.log(chalk.white("  Installed:\n"))
-    for (const m of models) {
-      console.log(`    ${m.name}`)
-      console.log(chalk.gray(`      Size: ${m.size} | Params: ${m.parameterSize} | Quant: ${m.quantization}`))
+
+    // Separate local and cloud models
+    const localModels = models.filter(m => !isCloudModel(m.name))
+    const cloudModels = models.filter(m => isCloudModel(m.name))
+
+    // Display local models
+    console.log(chalk.white("  Local Models:\n"))
+    if (localModels.length > 0) {
+      for (const m of localModels) {
+        console.log(`    ${m.name}`)
+        console.log(chalk.gray(`      Size: ${m.size} | Params: ${m.parameterSize} | Quant: ${m.quantization}`))
+      }
+    } else {
+      console.log(chalk.gray("    No local models installed"))
+    }
+
+    // Display cloud models
+    if (cloudModels.length > 0) {
+      console.log(chalk.white("\n  Cloud Models (Ollama Cloud):\n"))
+      for (const m of cloudModels) {
+        console.log(`    ${m.name} ${chalk.gray('(cloud)')}`)
+        console.log(chalk.gray(`      Params: ${m.parameterSize}`))
+      }
+      console.log(chalk.gray("\n  💡 Cloud models auto-authenticate through Ollama"))
+    } else {
+      console.log(chalk.white("\n  Cloud Models:\n"))
+      console.log(chalk.gray("    No cloud models available"))
+      console.log(chalk.gray("    To add: ollama pull gpt-oss:120b-cloud"))
     }
   } catch (error) {
     console.error(chalk.red("  Failed to connect to Ollama. Is it running?"))
     return
   }
 
-  console.log(chalk.white("\n  Models for Tool Calling (7B+ baseline):\n"))
-  
+  console.log(chalk.white("\n  Recommended for Tool Calling (7B+ baseline):\n"))
+
   for (const rec of MODEL_RECOMMENDATIONS) {
     console.log(`    ${rec.name}`)
     console.log(chalk.gray(`      ${rec.size} | RAM: ${rec.ram} | Tools: ${rec.toolCalling} | ${rec.notes}`))

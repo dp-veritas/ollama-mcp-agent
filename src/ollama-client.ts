@@ -38,16 +38,40 @@ export class OllamaClient {
     this._model = model
   }
 
+  // Helper to detect cloud models (supports both -cloud and :cloud formats)
+  private isCloudModel(modelName: string): boolean {
+    const lowerName = modelName.toLowerCase()
+    return lowerName.endsWith('-cloud') || lowerName.endsWith(':cloud')
+  }
+
+  // Extract parameter size from cloud model name (e.g., "120b" from "gpt-oss:120b-cloud")
+  private extractCloudParams(modelName: string): string {
+    const match = modelName.match(/(\d+[bmt])-cloud$/i) || modelName.match(/(\d+[bmt]):cloud$/i)
+    return match ? match[1].toUpperCase() : 'unknown'
+  }
+
+  // Check if error is authentication-related
+  private isAuthError(error: any): boolean {
+    const message = error?.message || error?.toString() || ''
+    return message.includes('unauthorized') ||
+           message.includes('authentication') ||
+           message.includes('not signed in') ||
+           message.includes('401')
+  }
+
   async listModels(): Promise<ModelInfo[]> {
     const response = await this.client.list()
-    return response.models.map((m) => ({
-      name: m.name,
-      size: formatBytes(m.size),
-      sizeBytes: m.size,
-      parameterSize: m.details?.parameter_size || "unknown",
-      quantization: m.details?.quantization_level || "unknown",
-      modified: new Date(m.modified_at),
-    }))
+    return response.models.map((m) => {
+      const isCloud = this.isCloudModel(m.name)
+      return {
+        name: m.name,
+        size: isCloud ? 'Cloud' : formatBytes(m.size),
+        sizeBytes: m.size,
+        parameterSize: m.details?.parameter_size || (isCloud ? this.extractCloudParams(m.name) : "unknown"),
+        quantization: m.details?.quantization_level || (isCloud ? 'cloud' : "unknown"),
+        modified: new Date(m.modified_at),
+      }
+    })
   }
 
   // Get models sorted by size (largest first)
@@ -58,6 +82,11 @@ export class OllamaClient {
 
   // Check if a specific model supports tool calling by inspecting its template
   async checkToolSupport(modelName: string): Promise<boolean> {
+    // Cloud models support tools by default
+    if (this.isCloudModel(modelName)) {
+      return true
+    }
+
     try {
       const response = await this.client.show({ model: modelName })
       const template = response.template || ""
@@ -90,44 +119,66 @@ export class OllamaClient {
     onStream?: StreamCallback,
     signal?: AbortSignal
   ): Promise<{ message: Message; toolCalls?: ToolCall[] }> {
-    // Use streaming if callback provided and no tools (tool calls don't stream well)
-    if (onStream && !tools) {
-      return this.chatStreaming(messages, onStream, signal)
-    }
+    try {
+      // Use streaming if callback provided and no tools (tool calls don't stream well)
+      if (onStream && !tools) {
+        return await this.chatStreaming(messages, onStream, signal)
+      }
 
-    // Check if already aborted
-    if (signal?.aborted) {
-      throw new DOMException("Request aborted", "AbortError")
-    }
+      // Check if already aborted
+      if (signal?.aborted) {
+        throw new DOMException("Request aborted", "AbortError")
+      }
 
-    // Create abort promise
-    const abortPromise = signal
-      ? new Promise<never>((_, reject) => {
-          signal.addEventListener("abort", () => {
-            reject(new DOMException("Request aborted", "AbortError"))
+      // Create abort promise
+      const abortPromise = signal
+        ? new Promise<never>((_, reject) => {
+            signal.addEventListener("abort", () => {
+              reject(new DOMException("Request aborted", "AbortError"))
+            })
           })
-        })
-      : null
+        : null
 
-    const chatPromise = this.client.chat({
-      model: this._model,
-      messages,
-      tools,
-      options: this.options,
-    })
+      const chatPromise = this.client.chat({
+        model: this._model,
+        messages,
+        tools,
+        options: this.options,
+      })
 
-    const response: ChatResponse = abortPromise
-      ? await Promise.race([chatPromise, abortPromise])
-      : await chatPromise
+      const response: ChatResponse = abortPromise
+        ? await Promise.race([chatPromise, abortPromise])
+        : await chatPromise
 
-    const toolCalls = response.message.tool_calls?.map((tc) => ({
-      name: tc.function.name,
-      arguments: tc.function.arguments as Record<string, unknown>,
-    }))
+      const toolCalls = response.message.tool_calls?.map((tc) => ({
+        name: tc.function.name,
+        arguments: tc.function.arguments as Record<string, unknown>,
+      }))
 
-    return {
-      message: response.message,
-      toolCalls,
+      return {
+        message: response.message,
+        toolCalls,
+      }
+    } catch (error: unknown) {
+      // Provide helpful error messages for cloud models
+      if (this.isCloudModel(this._model)) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        if (message.includes('model') && message.includes('not found')) {
+          throw new Error(
+            `Cloud model ${this._model} not available.\n` +
+            `Ollama will pull it automatically on first use, or run: ollama pull ${this._model}`
+          )
+        }
+
+        if (this.isAuthError(error)) {
+          throw new Error(
+            `Cloud authentication needed for ${this._model}.\n` +
+            `Ollama should handle this automatically, or run: ollama signin`
+          )
+        }
+      }
+      throw error
     }
   }
 
@@ -192,12 +243,26 @@ export class OllamaClient {
       if (!model) {
         return { ok: true } // Can't check, assume ok
       }
-      
+
       const paramStr = model.parameterSize.toLowerCase()
       const params = parseFloat(paramStr.replace(/[^0-9.]/g, ""))
-      const unit = paramStr.includes("b") ? "b" : "m"
-      const paramsInB = unit === "m" ? params / 1000 : params
-      
+
+      // Determine unit and convert to billions
+      let paramsInB: number
+      if (paramStr.includes("t")) {
+        // Trillions - convert to billions
+        paramsInB = params * 1000
+      } else if (paramStr.includes("b")) {
+        // Billions - already in correct unit
+        paramsInB = params
+      } else if (paramStr.includes("m")) {
+        // Millions - convert to billions
+        paramsInB = params / 1000
+      } else {
+        // Unknown unit, assume ok
+        return { ok: true }
+      }
+
       if (paramsInB < 3) {
         return {
           ok: false,
@@ -228,9 +293,12 @@ function formatBytes(bytes: number): string {
 const THINKING_CAPABLE_PREFIXES = [
   "qwen3",
   "deepseek-r1",
+  "deepseek-v3",
   "magistral",
   "qwq",
   "cogito",
+  "gpt-oss",
+  "kimi-k2",
 ]
 
 
